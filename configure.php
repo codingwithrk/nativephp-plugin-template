@@ -52,6 +52,9 @@ final class Configurator
             return;
         }
 
+        $this->rewriteComposerJson($vendor, $package, $plugin, $namespace, $description, $github);
+        $this->rewriteNativephpJson($vendor, $package, $plugin, $namespace, $description);
+
         $files = $this->files();
         $androidBasePackage = 'com.'.$this->androidSegment($vendor).'.'.$androidPackage;
 
@@ -69,13 +72,14 @@ final class Configurator
             ]);
         }
 
-        $this->renamePlaceholderPaths([
+        $this->renamePlaceholderFiles([
             '{{ vendor }}' => $vendor,
             '{{ package }}' => $package,
             '{{ plugin }}' => $plugin,
         ]);
+        $this->removeEmptyPlaceholderDirectories();
 
-        $this->renameAndroidPackagePath($vendor, $package, $androidPackage);
+        $this->renameAndroidPackagePath($vendor, $androidPackage);
         $this->normalizeCodeOwners($github);
 
         $this->writeln($this->green('Updated '.count($files).' files.'));
@@ -157,6 +161,10 @@ final class Configurator
                 continue;
             }
 
+            if (in_array(basename($relativePath), ['composer.json', 'nativephp.json'], true)) {
+                continue;
+            }
+
             $contents = file_get_contents($path);
 
             if (is_string($contents) && str_contains($contents, '{{ ')) {
@@ -199,7 +207,7 @@ final class Configurator
     /**
      * @param array<string, string> $replacements
      */
-    private function renamePlaceholderPaths(array $replacements): void
+    private function renamePlaceholderFiles(array $replacements): void
     {
         $paths = [];
         $directory = new RecursiveDirectoryIterator(__DIR__, RecursiveDirectoryIterator::SKIP_DOTS);
@@ -213,7 +221,19 @@ final class Configurator
             $path = $item->getPathname();
             $relativePath = $this->relativePath($path);
 
-            if (! $this->shouldSkipPath($relativePath) && str_contains($path, '{{ ')) {
+            if (
+                $item->isFile()
+                && str_contains($path, '{{ ')
+                && ! str_starts_with($relativePath, implode(DIRECTORY_SEPARATOR, [
+                    'android',
+                    'src',
+                    'main',
+                    'kotlin',
+                    'com',
+                    '{{ vendor }}',
+                    '{{ package }}',
+                ]))
+            ) {
                 $paths[] = $path;
             }
         }
@@ -235,35 +255,43 @@ final class Configurator
         }
     }
 
-    private function renameAndroidPackagePath(string $vendor, string $package, string $androidPackage): void
+    private function renameAndroidPackagePath(string $vendor, string $androidPackage): void
     {
-        $composerPath = __DIR__.DIRECTORY_SEPARATOR
+        $source = __DIR__.DIRECTORY_SEPARATOR
             .'android'.DIRECTORY_SEPARATOR
             .'src'.DIRECTORY_SEPARATOR
             .'main'.DIRECTORY_SEPARATOR
             .'kotlin'.DIRECTORY_SEPARATOR
             .'com'.DIRECTORY_SEPARATOR
             .'{{ vendor }}'.DIRECTORY_SEPARATOR
-            .'{{ package }}';
+            .'{{ package }}'.DIRECTORY_SEPARATOR
+            .'BridgeFunctions.kt';
 
-        if (! is_dir($composerPath)) {
+        if (! file_exists($source)) {
             return;
         }
 
-        $nativePath = __DIR__.DIRECTORY_SEPARATOR
+        $target = __DIR__.DIRECTORY_SEPARATOR
             .'android'.DIRECTORY_SEPARATOR
             .'src'.DIRECTORY_SEPARATOR
             .'main'.DIRECTORY_SEPARATOR
             .'kotlin'.DIRECTORY_SEPARATOR
             .'com'.DIRECTORY_SEPARATOR
             .$this->androidSegment($vendor).DIRECTORY_SEPARATOR
-            .$androidPackage;
+            .$androidPackage.DIRECTORY_SEPARATOR
+            .'BridgeFunctions.kt';
 
-        if (! is_dir(dirname($nativePath))) {
-            mkdir(dirname($nativePath), 0777, true);
+        $targetDirectory = dirname($target);
+
+        if (! is_dir($targetDirectory)) {
+            mkdir($targetDirectory, 0777, true);
         }
 
-        rename($composerPath, $nativePath);
+        if (file_exists($target)) {
+            unlink($target);
+        }
+
+        rename($source, $target);
     }
 
     private function normalizeCodeOwners(string $github): void
@@ -278,6 +306,171 @@ final class Configurator
 
         if (is_string($contents)) {
             file_put_contents($path, preg_replace('/@[^\\s]+/', '@'.$github, $contents) ?? $contents);
+        }
+    }
+
+    private function rewriteComposerJson(
+        string $vendor,
+        string $package,
+        string $plugin,
+        string $namespace,
+        string $description,
+        string $github,
+    ): void {
+        $composer = [
+            'name' => $vendor.'/'.$package,
+            'description' => $description,
+            'type' => 'nativephp-plugin',
+            'license' => 'MIT',
+            'keywords' => [
+                'nativephp',
+                'nativephp-mobile',
+                'nativephp-plugin',
+                $plugin,
+                $package,
+            ],
+            'homepage' => 'https://github.com/'.$github.'/'.$package,
+            'support' => [
+                'issues' => 'https://github.com/'.$github.'/'.$package.'/issues',
+                'source' => 'https://github.com/'.$github.'/'.$package,
+            ],
+            'require' => [
+                'php' => '^8.2',
+                'illuminate/contracts' => '^11.0|^12.0',
+                'illuminate/support' => '^11.0|^12.0',
+                'nativephp/mobile' => '^3.0',
+            ],
+            'require-dev' => [
+                'larastan/larastan' => '^3.0',
+                'laravel/pint' => '^1.24',
+                'orchestra/testbench' => '^9.0|^10.0',
+                'pestphp/pest' => '^3.8',
+                'pestphp/pest-plugin-laravel' => '^3.2',
+                'phpstan/phpstan' => '^2.1',
+                'phpstan/phpstan-deprecation-rules' => '^2.0',
+                'rector/rector' => '^2.1',
+            ],
+            'autoload' => [
+                'psr-4' => [
+                    $namespace.'\\' => 'src/',
+                ],
+            ],
+            'autoload-dev' => [
+                'psr-4' => [
+                    $namespace.'\\Tests\\' => 'tests/',
+                ],
+            ],
+            'extra' => [
+                'laravel' => [
+                    'providers' => [
+                        $namespace.'\\Providers\\'.$plugin.'ServiceProvider',
+                    ],
+                    'aliases' => [
+                        $plugin => $namespace.'\\Facades\\'.$plugin,
+                    ],
+                ],
+                'nativephp' => [
+                    'manifest' => 'nativephp.json',
+                ],
+            ],
+            'scripts' => [
+                'configure' => '@php configure.php',
+                'test' => 'pest',
+                'test:coverage' => 'pest --coverage',
+                'lint' => 'composer validate --strict && pint --test && phpstan analyse && rector process --dry-run',
+                'format' => 'pint',
+                'analyse' => 'phpstan analyse',
+                'rector' => 'rector process',
+                'rector:test' => 'rector process --dry-run',
+            ],
+            'config' => [
+                'allow-plugins' => [
+                    'pestphp/pest-plugin' => true,
+                ],
+                'sort-packages' => true,
+            ],
+            'minimum-stability' => 'stable',
+            'prefer-stable' => true,
+        ];
+
+        file_put_contents(
+            __DIR__.DIRECTORY_SEPARATOR.'composer.json',
+            json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+    }
+
+    private function rewriteNativephpJson(
+        string $vendor,
+        string $package,
+        string $plugin,
+        string $namespace,
+        string $description,
+    ): void {
+        $nativephp = [
+            'namespace' => $plugin,
+            'bridge_functions' => [
+                [
+                    'name' => $plugin.'.Example',
+                    'android' => 'com.'.$vendor.'.'.$package.'.'.$plugin.'Functions.Example',
+                    'ios' => $plugin.'Functions.Example',
+                    'description' => $description,
+                ],
+            ],
+            'android' => [
+                'min_version' => 26,
+                'permissions' => [],
+                'dependencies' => [
+                    'implementation' => [],
+                ],
+                'features' => [],
+            ],
+            'ios' => [
+                'min_version' => '18.2',
+                'info_plist' => [],
+                'dependencies' => [
+                    'swift_packages' => [],
+                    'pods' => [],
+                ],
+            ],
+            'events' => [
+                $namespace.'\\Events\\'.$plugin.'Event',
+            ],
+        ];
+
+        file_put_contents(
+            __DIR__.DIRECTORY_SEPARATOR.'nativephp.json',
+            json_encode($nativephp, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+    }
+
+    private function shouldSkipPath(string $relativePath): bool
+    {
+        $segments = explode(DIRECTORY_SEPARATOR, $relativePath);
+
+        return in_array($segments[0] ?? '', ['.git', 'vendor', 'node_modules'], true)
+            || $relativePath === basename(__FILE__);
+    }
+
+    private function removeEmptyPlaceholderDirectories(): void
+    {
+        $directory = new RecursiveDirectoryIterator(__DIR__, RecursiveDirectoryIterator::SKIP_DOTS);
+        $iterator = new RecursiveIteratorIterator($directory, RecursiveIteratorIterator::CHILD_FIRST);
+
+        foreach ($iterator as $item) {
+            if (! $item instanceof SplFileInfo || ! $item->isDir()) {
+                continue;
+            }
+
+            $path = $item->getPathname();
+            $relativePath = $this->relativePath($path);
+
+            if (! str_contains($relativePath, '{{ ')) {
+                continue;
+            }
+
+            if ($this->isDirectoryEmpty($path)) {
+                @rmdir($path);
+            }
         }
     }
 
@@ -304,22 +497,6 @@ final class Configurator
         unset($composer['scripts']['configure']);
 
         file_put_contents($path, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
-    }
-
-    private function shouldSkipPath(string $relativePath): bool
-    {
-        $segments = explode(DIRECTORY_SEPARATOR, $relativePath);
-        $androidPathPrefix = implode(DIRECTORY_SEPARATOR, [
-            'android',
-            'src',
-            'main',
-            'kotlin',
-            'com',
-        ]);
-
-        return in_array($segments[0] ?? '', ['.git', 'vendor', 'node_modules'], true)
-            || $relativePath === basename(__FILE__)
-            || str_starts_with($relativePath, $androidPathPrefix);
     }
 
     private function relativePath(string $path): string
@@ -438,6 +615,13 @@ final class Configurator
         }
 
         return $value;
+    }
+
+    private function isDirectoryEmpty(string $path): bool
+    {
+        $iterator = new FilesystemIterator($path, FilesystemIterator::SKIP_DOTS);
+
+        return ! $iterator->valid();
     }
 }
 
