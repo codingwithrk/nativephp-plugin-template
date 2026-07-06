@@ -174,9 +174,26 @@ final class Configurator
     {
         $contents = file_get_contents($path);
 
-        if (is_string($contents)) {
-            file_put_contents($path, str_replace(array_keys($replacements), array_values($replacements), $contents));
+        if (! is_string($contents)) {
+            return;
         }
+
+        if (str_ends_with($path, '.json')) {
+            $decoded = json_decode($contents, true);
+
+            if (is_array($decoded)) {
+                $updated = $this->replaceJsonValues($decoded, $replacements);
+
+                file_put_contents(
+                    $path,
+                    json_encode($updated, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL,
+                );
+
+                return;
+            }
+        }
+
+        file_put_contents($path, str_replace(array_keys($replacements), array_values($replacements), $contents));
     }
 
     /**
@@ -220,13 +237,27 @@ final class Configurator
 
     private function renameAndroidPackagePath(string $vendor, string $package, string $androidPackage): void
     {
-        $composerPath = __DIR__.DIRECTORY_SEPARATOR.'android'.DIRECTORY_SEPARATOR.'src'.DIRECTORY_SEPARATOR.'main'.DIRECTORY_SEPARATOR.'kotlin'.DIRECTORY_SEPARATOR.'com'.DIRECTORY_SEPARATOR.$vendor.DIRECTORY_SEPARATOR.$package;
+        $composerPath = __DIR__.DIRECTORY_SEPARATOR
+            .'android'.DIRECTORY_SEPARATOR
+            .'src'.DIRECTORY_SEPARATOR
+            .'main'.DIRECTORY_SEPARATOR
+            .'kotlin'.DIRECTORY_SEPARATOR
+            .'com'.DIRECTORY_SEPARATOR
+            .'{{ vendor }}'.DIRECTORY_SEPARATOR
+            .'{{ package }}';
 
         if (! is_dir($composerPath)) {
             return;
         }
 
-        $nativePath = __DIR__.DIRECTORY_SEPARATOR.'android'.DIRECTORY_SEPARATOR.'src'.DIRECTORY_SEPARATOR.'main'.DIRECTORY_SEPARATOR.'kotlin'.DIRECTORY_SEPARATOR.'com'.DIRECTORY_SEPARATOR.$this->androidSegment($vendor).DIRECTORY_SEPARATOR.$androidPackage;
+        $nativePath = __DIR__.DIRECTORY_SEPARATOR
+            .'android'.DIRECTORY_SEPARATOR
+            .'src'.DIRECTORY_SEPARATOR
+            .'main'.DIRECTORY_SEPARATOR
+            .'kotlin'.DIRECTORY_SEPARATOR
+            .'com'.DIRECTORY_SEPARATOR
+            .$this->androidSegment($vendor).DIRECTORY_SEPARATOR
+            .$androidPackage;
 
         if (! is_dir(dirname($nativePath))) {
             mkdir(dirname($nativePath), 0777, true);
@@ -278,9 +309,17 @@ final class Configurator
     private function shouldSkipPath(string $relativePath): bool
     {
         $segments = explode(DIRECTORY_SEPARATOR, $relativePath);
+        $androidPathPrefix = implode(DIRECTORY_SEPARATOR, [
+            'android',
+            'src',
+            'main',
+            'kotlin',
+            'com',
+        ]);
 
         return in_array($segments[0] ?? '', ['.git', 'vendor', 'node_modules'], true)
-            || $relativePath === basename(__FILE__);
+            || $relativePath === basename(__FILE__)
+            || str_starts_with($relativePath, $androidPathPrefix);
     }
 
     private function relativePath(string $path): string
@@ -306,6 +345,11 @@ final class Configurator
 
     private function studly(string $value): string
     {
+        if (preg_match('/^[A-Z][A-Za-z0-9]*$/', $value) === 1) {
+            return $value;
+        }
+
+        $value = preg_replace('/([a-z0-9])([A-Z])/', '$1 $2', $value) ?? $value;
         $value = str_replace(['-', '_'], ' ', $value);
         $value = ucwords(strtolower($value));
 
@@ -371,6 +415,29 @@ final class Configurator
         }
 
         return "\033[{$code}m{$message}\033[0m";
+    }
+
+    /**
+     * @param array<string, mixed> $value
+     * @param array<string, string> $replacements
+     *
+     * @return array<string, mixed>
+     */
+    private function replaceJsonValues(array $value, array $replacements): array
+    {
+        foreach ($value as $key => $item) {
+            if (is_string($item)) {
+                $value[$key] = str_replace(array_keys($replacements), array_values($replacements), $item);
+
+                continue;
+            }
+
+            if (is_array($item)) {
+                $value[$key] = $this->replaceJsonValues($item, $replacements);
+            }
+        }
+
+        return $value;
     }
 }
 
