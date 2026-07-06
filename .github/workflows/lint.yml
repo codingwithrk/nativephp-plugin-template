@@ -20,6 +20,9 @@ jobs:
           php-version: "8.3"
           tools: composer:v2
 
+      - name: Configure template
+        run: php configure.php --no-interaction --vendor=acme --package=mobile-battery --plugin=Battery --namespace="Acme\\MobileBattery" --description="NativePHP Mobile battery plugin." --android-package=mobilebattery
+
       - name: Validate Composer
         run: composer validate --strict
 
@@ -35,6 +38,9 @@ jobs:
         with:
           php-version: "8.3"
           tools: composer:v2
+
+      - name: Configure template
+        run: php configure.php --no-interaction --vendor=acme --package=mobile-battery --plugin=Battery --namespace="Acme\\MobileBattery" --description="NativePHP Mobile battery plugin." --android-package=mobilebattery
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
@@ -55,6 +61,9 @@ jobs:
           php-version: "8.3"
           tools: composer:v2
 
+      - name: Configure template
+        run: php configure.php --no-interaction --vendor=acme --package=mobile-battery --plugin=Battery --namespace="Acme\\MobileBattery" --description="NativePHP Mobile battery plugin." --android-package=mobilebattery
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
@@ -73,6 +82,9 @@ jobs:
         with:
           php-version: "8.3"
           tools: composer:v2
+
+      - name: Configure template
+        run: php configure.php --no-interaction --vendor=acme --package=mobile-battery --plugin=Battery --namespace="Acme\\MobileBattery" --description="NativePHP Mobile battery plugin." --android-package=mobilebattery
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress

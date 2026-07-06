@@ -22,6 +22,7 @@
         "nativephp/mobile": "^3.0"
     },
     "require-dev": {
+        "larastan/larastan": "^3.0",
         "laravel/pint": "^1.24",
         "orchestra/testbench": "^9.0|^10.0",
         "pestphp/pest": "^3.8",
@@ -54,6 +55,7 @@
         }
     },
     "scripts": {
+        "configure": "@php configure.php",
         "test": "pest",
         "test:coverage": "pest --coverage",
         "lint": "composer validate --strict && pint --test && phpstan analyse && rector process --dry-run",

@@ -7,6 +7,7 @@ namespace {{ namespace }};
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
+use RuntimeException;
 use {{ namespace }}\Contracts\{{ plugin }}Contract;
 
 final class Plugin implements {{ plugin }}Contract
@@ -43,6 +44,10 @@ final class Plugin implements {{ plugin }}Contract
     private function callBridge(string $function, array $payload): array
     {
         $bridge = $this->app->make('nativephp.mobile.bridge');
+
+        if (! is_object($bridge) || ! method_exists($bridge, 'call')) {
+            throw new RuntimeException('The NativePHP mobile bridge is not available for {{ vendor }}/{{ package }}.');
+        }
 
         /** @var mixed $response */
         $response = $bridge->call($function, $payload);

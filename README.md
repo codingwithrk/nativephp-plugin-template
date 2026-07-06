@@ -76,11 +76,16 @@ Laravel auto-discovery registers `{{ namespace }}\Providers\{{ plugin }}ServiceP
 ## Creating Your First Plugin
 
 1. Clone this repository.
-2. Replace placeholders across the repository.
-3. Rename PHP classes and files that include `{{ plugin }}`.
-4. Update `nativephp.json` bridge function names and native targets.
-5. Replace the template bridge implementation with the platform APIs your plugin needs.
-6. Run the test and lint commands.
+2. Run `php configure.php`.
+3. Review the generated package names, namespaces, and bridge targets.
+4. Replace the template bridge implementation with the platform APIs your plugin needs.
+5. Run the test and lint commands.
+
+For automation or CI, the script also accepts options:
+
+```bash
+php configure.php --no-interaction --vendor=acme --package=mobile-battery --plugin=Battery --namespace="Acme\\MobileBattery" --description="NativePHP Mobile battery plugin." --android-package=mobilebattery
+```
 
 ## Publishing
 
