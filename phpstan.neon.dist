@@ -1,0 +1,17 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    tmpDir: .phpstan/cache
+    checkMissingIterableValueType: false
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        -
+            message: '#\{\{ namespace \}\}#'
+            path: src/*
+
+includes:
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+
+# Template: {{ vendor }}/{{ package }} for {{ plugin }}.
