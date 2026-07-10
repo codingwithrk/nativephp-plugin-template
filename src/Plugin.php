@@ -44,7 +44,7 @@ final class Plugin implements {{ plugin }}Contract
 
         $bridge = $this->app->make('nativephp.mobile.bridge');
 
-        return is_object($bridge) && method_exists($bridge, 'call');
+        return is_object($bridge) && is_callable([$bridge, 'call']);
     }
 
     /**
@@ -56,7 +56,7 @@ final class Plugin implements {{ plugin }}Contract
     {
         $bridge = $this->app->make('nativephp.mobile.bridge');
 
-        if (! is_object($bridge) || ! method_exists($bridge, 'call')) {
+        if (! is_object($bridge) || ! is_callable([$bridge, 'call'])) {
             throw new RuntimeException('The NativePHP mobile bridge is not available for {{ vendor }}/{{ package }}.');
         }
 
