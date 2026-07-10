@@ -21,4 +21,9 @@ interface {{ plugin }}Contract
      * @return array<string, mixed>
      */
     public function manifest(): array;
+
+    /**
+     * Determine whether the NativePHP mobile bridge is available in the container.
+     */
+    public function isAvailable(): bool;
 }
