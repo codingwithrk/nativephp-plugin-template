@@ -24,6 +24,17 @@ final class Plugin implements {{ plugin }}Contract
         return $response;
     }
 
+    public function isAvailable(): bool
+    {
+        if (! $this->app->bound('nativephp.mobile.bridge')) {
+            return false;
+        }
+
+        $bridge = $this->app->make('nativephp.mobile.bridge');
+
+        return is_object($bridge) && is_callable([$bridge, 'call']);
+    }
+
     public function manifest(): array
     {
         /** @var array<string, mixed> $manifest */

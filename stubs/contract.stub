@@ -12,4 +12,9 @@ interface {{ plugin }}Contract
      * @return array<string, mixed>
      */
     public function example(array $payload = []): array;
+
+    /**
+     * Determine whether the NativePHP mobile bridge is available in the container.
+     */
+    public function isAvailable(): bool;
 }

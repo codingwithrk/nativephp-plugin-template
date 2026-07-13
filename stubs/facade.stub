@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Facade;
 /**
  * @method static array<string, mixed> example(array<string, mixed> $payload = [])
  * @method static array<string, mixed> manifest()
+ * @method static bool isAvailable()
  */
 final class {{ plugin }} extends Facade
 {
