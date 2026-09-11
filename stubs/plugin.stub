@@ -38,9 +38,6 @@ final class Plugin implements {{ plugin }}Contract
      */
     private function callBridge(string $function, array $payload): array
     {
-        // Tests bind a fake (or any double) into the container under this key.
-        // Prefer it over the real bridge so plugin behaviour stays testable
-        // without a compiled NativePHP mobile app.
         if ($this->app->bound('nativephp.mobile.bridge')) {
             $bridge = $this->app->make('nativephp.mobile.bridge');
 
@@ -52,9 +49,6 @@ final class Plugin implements {{ plugin }}Contract
             }
         }
 
-        // In a real NativePHP mobile app, native calls go through the
-        // `nativephp_call()` helper provided by the embedded PHP runtime.
-        // See: https://nativephp.com/docs/mobile/4/plugins/bridge-functions
         if (! function_exists('nativephp_call')) {
             throw new RuntimeException('The NativePHP mobile bridge is not available for {{ vendor }}/{{ package }}.');
         }
@@ -68,9 +62,6 @@ final class Plugin implements {{ plugin }}Contract
             return ['value' => $decoded];
         }
 
-        // The bridge wraps native responses in a BridgeResponse envelope
-        // (`{"success": true, "data": {...}}`); unwrap it so callers get the
-        // native payload rather than the envelope itself.
         if (array_key_exists('data', $decoded)) {
             /** @var mixed $data */
             $data = $decoded['data'];
