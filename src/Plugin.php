@@ -38,13 +38,13 @@ final class Plugin implements {{ plugin }}Contract
 
     public function isAvailable(): bool
     {
-        if (! $this->app->bound('nativephp.mobile.bridge')) {
-            return false;
+        if ($this->app->bound('nativephp.mobile.bridge')) {
+            $bridge = $this->app->make('nativephp.mobile.bridge');
+
+            return is_object($bridge) && is_callable([$bridge, 'call']);
         }
 
-        $bridge = $this->app->make('nativephp.mobile.bridge');
-
-        return is_object($bridge) && is_callable([$bridge, 'call']);
+        return function_exists('nativephp_call');
     }
 
     /**
@@ -54,22 +54,32 @@ final class Plugin implements {{ plugin }}Contract
      */
     private function callBridge(string $function, array $payload): array
     {
-        $bridge = $this->app->make('nativephp.mobile.bridge');
+        // Tests bind a fake (or any double) into the container under this key.
+        // Prefer it over the real bridge so plugin behaviour stays testable
+        // without a compiled NativePHP mobile app.
+        if ($this->app->bound('nativephp.mobile.bridge')) {
+            $bridge = $this->app->make('nativephp.mobile.bridge');
 
-        if (! is_object($bridge) || ! is_callable([$bridge, 'call'])) {
+            if (is_object($bridge) && is_callable([$bridge, 'call'])) {
+                /** @var mixed $response */
+                $response = $bridge->call($function, $payload);
+
+                return is_array($response) ? $response : ['value' => $response];
+            }
+        }
+
+        // In a real NativePHP mobile app, native calls go through the
+        // `nativephp_call()` helper provided by the embedded PHP runtime.
+        // See: https://nativephp.com/docs/mobile/4/plugins/bridge-functions
+        if (! function_exists('nativephp_call')) {
             throw new RuntimeException('The NativePHP mobile bridge is not available for {{ vendor }}/{{ package }}.');
         }
 
-        /** @var mixed $response */
-        $response = $bridge->call($function, $payload);
+        $response = nativephp_call($function, json_encode($payload, JSON_THROW_ON_ERROR));
 
-        if (is_array($response)) {
-            /** @var array<string, mixed> $response */
-            return $response;
-        }
+        /** @var mixed $decoded */
+        $decoded = json_decode((string) $response, true);
 
-        return [
-            'value' => $response,
-        ];
+        return is_array($decoded) ? $decoded : ['value' => $decoded];
     }
 }

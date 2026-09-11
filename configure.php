@@ -338,7 +338,7 @@ final class Configurator
                 'php' => '^8.2',
                 'illuminate/contracts' => '^11.0|^12.0',
                 'illuminate/support' => '^11.0|^12.0',
-                'nativephp/mobile' => '^3.0',
+                'nativephp/mobile' => '^3.0|^4.0',
             ],
             'require-dev' => [
                 'larastan/larastan' => '^3.0',
