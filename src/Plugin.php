@@ -38,13 +38,13 @@ final class Plugin implements {{ plugin }}Contract
 
     public function isAvailable(): bool
     {
-        if (! $this->app->bound('nativephp.mobile.bridge')) {
-            return false;
+        if ($this->app->bound('nativephp.mobile.bridge')) {
+            $bridge = $this->app->make('nativephp.mobile.bridge');
+
+            return is_object($bridge) && is_callable([$bridge, 'call']);
         }
 
-        $bridge = $this->app->make('nativephp.mobile.bridge');
-
-        return is_object($bridge) && is_callable([$bridge, 'call']);
+        return function_exists('nativephp_call');
     }
 
     /**
@@ -54,22 +54,37 @@ final class Plugin implements {{ plugin }}Contract
      */
     private function callBridge(string $function, array $payload): array
     {
-        $bridge = $this->app->make('nativephp.mobile.bridge');
+        if ($this->app->bound('nativephp.mobile.bridge')) {
+            $bridge = $this->app->make('nativephp.mobile.bridge');
 
-        if (! is_object($bridge) || ! is_callable([$bridge, 'call'])) {
+            if (is_object($bridge) && is_callable([$bridge, 'call'])) {
+                /** @var mixed $response */
+                $response = $bridge->call($function, $payload);
+
+                return is_array($response) ? $response : ['value' => $response];
+            }
+        }
+
+        if (! function_exists('nativephp_call')) {
             throw new RuntimeException('The NativePHP mobile bridge is not available for {{ vendor }}/{{ package }}.');
         }
 
-        /** @var mixed $response */
-        $response = $bridge->call($function, $payload);
+        $response = nativephp_call($function, json_encode($payload, JSON_THROW_ON_ERROR));
 
-        if (is_array($response)) {
-            /** @var array<string, mixed> $response */
-            return $response;
+        /** @var mixed $decoded */
+        $decoded = json_decode((string) $response, true);
+
+        if (! is_array($decoded)) {
+            return ['value' => $decoded];
         }
 
-        return [
-            'value' => $response,
-        ];
+        if (array_key_exists('data', $decoded)) {
+            /** @var mixed $data */
+            $data = $decoded['data'];
+
+            return is_array($data) ? $data : ['value' => $data];
+        }
+
+        return $decoded;
     }
 }
