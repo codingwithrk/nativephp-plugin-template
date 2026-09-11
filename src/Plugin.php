@@ -80,6 +80,20 @@ final class Plugin implements {{ plugin }}Contract
         /** @var mixed $decoded */
         $decoded = json_decode((string) $response, true);
 
-        return is_array($decoded) ? $decoded : ['value' => $decoded];
+        if (! is_array($decoded)) {
+            return ['value' => $decoded];
+        }
+
+        // The bridge wraps native responses in a BridgeResponse envelope
+        // (`{"success": true, "data": {...}}`); unwrap it so callers get the
+        // native payload rather than the envelope itself.
+        if (array_key_exists('data', $decoded)) {
+            /** @var mixed $data */
+            $data = $decoded['data'];
+
+            return is_array($data) ? $data : ['value' => $data];
+        }
+
+        return $decoded;
     }
 }
